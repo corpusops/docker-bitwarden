@@ -1,0 +1,66 @@
+1.10.0
+1.10.0-aarch64 1.10.0-armv6
+1.10.0-alpine
+1.10.0-raspberry
+1.11.0
+1.11.0-aarch64
+1.11.0-alpine
+1.11.0-armv6
+1.11.0-raspberry
+1.12.0
+1.12.0-alpine
+1.12.0-armv6 1.12.0-aarch64
+1.12.0-raspberry
+1.13.0
+1.13.0-aarch64
+1.13.0-alpine
+1.13.0-armv6
+1.13.0-raspberry
+1.13.1
+1.13.1-alpine 1.13.1-aarch64
+1.13.1-armv6
+1.13.1-raspberry
+1.14
+1.14-aarch64
+1.14-alpine
+1.14-armv6
+1.14-raspberry
+1.14.1
+1.14.1-alpine
+1.14.1-armv6
+1.14.1-raspberry 1.14.1-aarch64
+1.14.2
+1.14.2-aarch64
+1.14.2-alpine
+1.14.2-armv6
+1.14.2-raspberry
+1.15.0
+1.15.0-alpine
+1.15.0-armv6
+1.15.0-raspberry 1.15.0-aarch64
+1.15.1
+1.15.1-aarch64
+1.15.1-alpine
+1.15.1-armv6
+1.15.1-raspberry
+1.16.0
+1.16.0-alpine
+1.16.1 1.16.1-arm32v6
+1.16.1-alpine
+1.16.2
+1.16.2-alpine
+1.16.2-arm32v6
+1.16.3
+1.16.3-alpine
+1.16.3-arm32v6
+1.17.0-alpine 1.17.0
+1.17.0-arm32v6
+1.18.0
+1.18.0-alpine
+1.18.0-arm32v6
+alpine
+latest-arm32v6
+testing
+testing-alpine
+testing-arm32v6
+ latest
