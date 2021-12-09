@@ -65,7 +65,7 @@ jobs:
       fail-fast: false
       matrix:
         IMAGES:
-        - "bitwardenrs/web-vault/v2.18.1 bitwardenrs/server-postgresql/1.18.0 bitwardenrs/server-postgresql/latest"
+        - "bitwardenrs/server-postgresql/1.18.0 bitwardenrs/server-postgresql/latest"
         #- "corpusops/test/a corpusops/test/b corpusops/test/c"
         # all images that werent explicitly told to be built would be built in the next batches
         # we span them onto N jobs

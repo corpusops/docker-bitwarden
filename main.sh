@@ -261,7 +261,6 @@ default_images="
 bitwardenrs/server
 bitwardenrs/server-postgresql
 bitwardenrs/server-mysql
-bitwardenrs/web-vault
 "
 
 find_top_node_() {
@@ -284,8 +283,8 @@ NODE_TOP="$(echo $(find_top_node))"
 MAILU_VERSiON=1.7
 
 BATCHED_IMAGES="\
-bitwardenrs/web-vault/v2.18.1\
- bitwardenrs/server-postgresql/1.18.0\
+bitwardenrs/server-postgresql/1.18.0\
+ bitwardenrs/server-postgresql/1.19.0\
  bitwardenrs/server-postgresql/latest\
  bitwardenrs/server-postgresql/alpine::30
 "
@@ -579,7 +578,9 @@ do_refresh_images() {
     while read images;do
         for image in $images;do
             if [[ -n $image ]];then
-                make_tags $image
+                if [[ -z "${SKIP_MAKE_TAGS-}" ]];then
+                    make_tags $image
+                fi
                 do_clean_tags $image
             fi
         done
@@ -829,6 +830,7 @@ load_batched_images() {
     local counter=0
     local default_batchsize=$1
     shift
+    local batched_images="$(echo $@ |xargs -n1)"
     for i in $@;do
         local imgs=${i//::*}
         local batchsize=$default_batchsize
@@ -841,7 +843,7 @@ load_batched_images() {
             local subimages=$(do_list_image $img)
             if [[ -z $subimages ]];then break;fi
             for j in $subimages;do
-                if ! ( is_in_images $j );then
+                if ! ( is_in_images $j ) && ( echo "$batched_images" | egrep -q "^$j$");then
                     local space=" "
                     if [ `expr $counter % $batchsize` = 0 ];then
                         space=""

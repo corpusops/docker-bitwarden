@@ -1,4 +1,4 @@
-FROM bitwardenrs/web-vault:v2.18.1
+FROM bitwardenrs/server-mysql:1.19.0
 ARG DO_UPDATE=y
 ARG NONINTERACTIVE=y
 ARG INSTALL_DEFAULT_LOCALE="fr_FR.UTF-8"
