@@ -261,6 +261,9 @@ default_images="
 bitwardenrs/server
 bitwardenrs/server-postgresql
 bitwardenrs/server-mysql
+vaultwarden/server
+vaultwarden/server-postgresql
+vaultwarden/server-mysql
 "
 
 find_top_node_() {
