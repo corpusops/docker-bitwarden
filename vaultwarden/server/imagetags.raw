@@ -1,6 +1,18 @@
+1.21.0
+1.21.0-alpine
+1.21.0-arm32v6
+1.22.0
+1.22.0-arm32v6
+1.22.1
+1.22.1-alpine 1.22.1-arm32v6
+1.22.2
+1.22.2-alpine
+1.22.2-arm32v6
 alpine
 latest-arm32v6
 testing
 testing-alpine
 testing-arm32v6
+webauthn
+webauthn-arm32v6
  latest
