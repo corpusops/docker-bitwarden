@@ -9,6 +9,15 @@
 1.22.2
 1.22.2-alpine
 1.22.2-arm32v6
+1.23.0
+1.23.0-alpine
+1.23.0-arm32v6
+1.23.1
+1.23.1-alpine
+1.23.1-arm32v6
+1.24.0
+1.24.0-alpine
+1.24.0-arm32v6
 alpine
 latest
 latest-arm32v6

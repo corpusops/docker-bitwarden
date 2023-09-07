@@ -80,5 +80,6 @@ RUN sh -c 'set -ex \
     && chmod +x *sh \
     && _cops_SYSTEM=$(./system_detect.sh) \
     && ./${_cops_SYSTEM}_clean.sh \
+    && ./common_clean.sh \
     && cd / && rm -rf /tmp/corpusopssteroids /var/cache/apk/* /var/lib/apt/lists/*'
 LABEL com.github.corpusops.docker-images-commit="$DOCKER_IMAGES_COMMIT"
