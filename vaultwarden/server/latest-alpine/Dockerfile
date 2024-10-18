@@ -1,6 +1,6 @@
-ARG ANCESTOR=vaultwarden/server:alpine
+ARG ANCESTOR=vaultwarden/server:latest-alpine
 ARG RSYNC=corpusops/rsync
-FROM vaultwarden/server:alpine AS final
+FROM vaultwarden/server:latest-alpine AS final
 ARG DO_UPDATE=y
 ARG NONINTERACTIVE=y
 ARG DEBIAN_FRONTEND=noninteractive
