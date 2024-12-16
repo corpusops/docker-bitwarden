@@ -1,4 +1,4 @@
-# library images on steroids for hashicorp/bitwarden
+# library images on steroids for bitwarden related stuff
 
 DISCLAIMER
 ============
