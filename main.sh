@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 shopt -s extglob
+export DOCKER_BUILDKIT=${DOCKER_BUILDKIT-1}
+export COMPOSE_DOCKER_CLI_BUILD=${COMPOSE_DOCKER_CLI_BUILD-1}
+export BUILDKIT_PROGRESS=${BUILDKIT_PROGRESS-plain}
 ## refresh from corpsusops.bootstrap/hacking/shell_glue (copy paste until last function)
 readlinkf() {
     if ( uname | grep -E -iq "darwin|bsd" );then
@@ -23,6 +26,12 @@ NORMAL="\\e[0;0m"
 NO_COLOR=${NO_COLORS-${NO_COLORS-${NOCOLOR-${NOCOLORS-}}}}
 LOGGER_NAME=${LOGGER_NAME:-corpusops_build}
 ERROR_MSG="There were errors"
+ver_ge() { [  "$2" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]; }
+ver_gt() { [ "$1" = "$2" ] && return 1 || ver_ge $1 $2; }
+ver_le() { [  "$1" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]; }
+ver_lt() { [ "$1" = "$2" ] && return 1 || ver_le $1 $2; }
+join_by() { a="";s=$1;shift;for i in $@;do if [[ -z $a ]];then a="$(printf "$i")";else a="$(printf "$a$s$i")";fi;done;echo "$a"; }
+filter_last_line_but_keep_at_least_once() { lines="$@";if [ $( echo "$lines" | wc -l ) -gt 1 ];then echo "$lines"|sed -re '$ d';else echo "$lines";fi; }
 uniquify_string() {
     local pattern=$1
     shift
@@ -224,27 +233,24 @@ NBPARALLEL=${NBPARALLEL-2}
 SKIP_TAGS_REBUILD=${SKIP_TAGS_REBUILD-}
 SKIP_TAGS_REFRESH=${SKIP_TAGS_REFRESH-${SKIP_TAGS_REBUILD}}
 SKIP_IMAGES_SCAN=${SKIP_IMAGES_SCAN-}
-SKIP_MINOR_ES="((elasticsearch):.*([0-5]\.?){3}(-32bit.*)?)"
-SKIP_MINOR_ES2="$SKIP_MINOR_ES|(elasticsearch:(5\.[0-4]\.)|(6\.8\.[0-8])|(6\.[0-7])|(7\.9\.[0-2])|(7\.[0-8]))"
 # SKIP_MINOR_NGINX="((nginx):.*[0-9]+\.[0-9]+\.[0-9]+(-32bit.*)?)"
 MINOR_IMAGES="(golang|mariadb|memcached|mongo|mysql|nginx|node|php|postgres|python|rabbitmq|redis|redmine|ruby|solr)"
 SKIP_MINOR_OS="$MINOR_IMAGES:.*alpine[0-9].*"
 SKIP_MINOR="$MINOR_IMAGES:.*[0-9]+\.([0-9]+\.)[0-9]+(-32bit.*)?"
-SKIP_PRE="((redis|node|ruby|php|golang|python|mariadb|mysql|postgres|solr|elasticsearch|mongo|rabbitmq):.*(alpha|beta|rc)[0-9]*(-32bit.*)?)"
+SKIP_PRE="((redis|node|ruby|php|golang|python|mariadb|mysql|postgres|solr|elasticsearch|mongo|rabbitmq|opensearch):.*(alpha|beta|rc)[0-9]*(-32bit.*)?)"
 SKIP_OS="(((archlinux|suse|centos|fedora|redhat|alpine|debian|ubuntu|oldstable|oldoldstable):.*[0-9]{8}.*)"
 SKIP_OS="$SKIP_OS|((node):[0-9]+[0-9]+\.[0-9]+.*)"
 SKIP_OS="$SKIP_OS|((debian|redis):[0-9]+\.[0-9]+.*)"
 SKIP_OS="$SKIP_OS|(centos:.\..\.....|centos.\..\.....)"
 SKIP_OS="$SKIP_OS|(alpine:.\.[0-9]+\.[0-9]+)"
 SKIP_OS="$SKIP_OS|(debian:(6.*|squeeze))"
-SKIP_OS="$SKIP_OS|(ubuntu:(([0-9][0-9]\.[0-9][0-9]\..*)|(14.10|12|10|11|13|15)))"
 SKIP_OS="$SKIP_OS|(lucid|maverick|natty|precise|quantal|raring|saucy)"
 SKIP_OS="$SKIP_OS|(centos:(centos)?5)"
 SKIP_OS="$SKIP_OS|(fedora.*(modular|21))"
 SKIP_OS="$SKIP_OS|(traefik:((camembert|cancoillotte|cantal|chevrotin|faisselle|livarot|maroilles|montdor|morbier|picodon|raclette|reblochon|roquefort|tetedemoine)(-alpine)?|rc.*|(v?([0-9]+\.[0-9]+\.).*$)))"
 SKIP_OS="$SKIP_OS|(minio.*(armhf|aarch))"
+SKIP_PHP="(php:(5.4|5.3|.*(RC|-rc-).*))"
 SKIP_OS="$SKIP_OS)"
-SKIP_PHP="(php:(.*(RC|-rc-).*))"
 SKIP_WINDOWS="(.*(nanoserver|windows))"
 SKIP_MISC="(-?(on.?build)|pgrouting.*old)|seafile-mc:(7.0.1|7.0.2|7.0.3|7.0.4|7.0.5|7.1.3)|(dejavu:(v.*|1\..\.?.?|2\..\..)|3\.[1-3]\..|3.0.0|.*alpha.*$)"
 SKIP_NODE="((node):.*alpine3\..?.?)"
@@ -252,22 +258,24 @@ SKIP_TF="(tensorflow.serving:[0-9].*)"
 SKIP_MINIO="(k8s-operator|((minio|mc):(RELEASE.)?[0-9]{4}-.{7}))"
 SKIP_MAILU="(mailu.*(feat|patch|merg|refactor|revert|upgrade|fix-|pr-template))"
 SKIP_DOCKER="docker(\/|:)([0-9]+\.[0-9]+\.|17|18.0[1-6]|1$|1(\.|-)).*"
-SKIPPED_TAGS="$SKIP_TF|$SKIP_MINOR_OS|$SKIP_NODE|$SKIP_DOCKER|$SKIP_MINIO|$SKIP_MAILU|$SKIP_MINOR_ES2|$SKIP_MINOR|$SKIP_PRE|$SKIP_OS|$SKIP_PHP|$SKIP_WINDOWS|$SKIP_MISC"
+SKIPPED_TAGS="$SKIP_TF|$SKIP_MINOR_OS|$SKIP_NODE|$SKIP_DOCKER|$SKIP_MINIO|$SKIP_MAILU|$SKIP_MINOR|$SKIP_PRE|$SKIP_OS|$SKIP_PHP|$SKIP_WINDOWS|$SKIP_MISC"
 CURRENT_TS=$(date +%s)
 IMAGES_SKIP_NS="((mailhog|postgis|pgrouting(-bare)?|^library|dejavu|(minio/(minio|mc))))"
 
-
-SKIPPED_TAGS="bitwar.*server.*(1.1[0-7]|arm|rasp|aarch|(1\.[1-9,10-17]\.)).*|bitwar.*web-vault.*v2.1[1-7]"
+VAULTWARDEN_SKIPPED_TAGS="(bitwardenrs.*|(vaultwarden)/server(-(webauthn|mysql|postgresql))?:.*(1.14|arm|rasp|aarch|testing).*)"
+SKIPPED_TAGS="$VAULTWARDEN_SKIPPED_TAGS"
 
 default_images="
 bitwardenrs/server
 bitwardenrs/server-postgresql
 bitwardenrs/server-mysql
 vaultwarden/server
-vaultwarden/server-postgresql
-vaultwarden/server-mysql
 "
-
+ONLY_LAST_MINOR="y"
+ONLY_ONE_MINOR="postgres|elasticsearch|nginx|(vaultwarden)/server(-(mysql|postgresql))?"
+ONE_MINOR="elasticsearch"
+PROTECTED_VERSIONS="vaultwarden.*(1.19.0)(-alpine)?$"
+PROTECTED_TAGS="corpusops/rsyslog"
 find_top_node_() {
     img=library/node
     if [ ! -e $img ];then return;fi
@@ -288,10 +296,9 @@ NODE_TOP="$(echo $(find_top_node))"
 MAILU_VERSiON=1.7
 
 BATCHED_IMAGES="\
-bitwardenrs/server-postgresql/1.18.0\
- bitwardenrs/server-postgresql/1.19.0\
- bitwardenrs/server-postgresql/latest\
- bitwardenrs/server-postgresql/alpine::30
+vaultwarden/server/1.32.2 vaultwarden/server/1.32.2-alpine::30
+vaultwarden/server/alpine vaultwarden/server/latest-alpine::30
+vaultwarden/server/latest vaultwarden/server/webauthn::30
 "
 SKIP_REFRESH_ANCESTORS=${SKIP_REFRESH_ANCESTORS-}
 
@@ -455,7 +462,11 @@ gen_image() {
         local df="$folder/Dockerfile.override"
         if [ -e "$df" ];then dockerfiles="$dockerfiles $df" && break;fi
     done
-    local parts="from args argspost helpers pre base post clean cleanpost extra labels labelspost"
+    local parts=""
+    for partsstep in squashpre from args argspost helpers pre base post postextra clean cleanpost predosquash squash squashpreexec squashexec postdosquash extra labels labelspost;do
+        parts="$parts pre_${partsstep} ${partsstep} post_${partsstep}"
+    done
+    parts=$(echo "$parts"|xargs)
     for order in $parts;do
         for folder in . .. ../../..;do
             local df="$folder/Dockerfile.$order"
@@ -476,6 +487,11 @@ gen_image() {
 
 is_skipped() {
     local ret=1 t="$@"
+    if [[ -z $SKIPPED_TAGS ]];then return 1;fi
+    if [[ -n "${PROTECTED_VERSIONS}" ]] && ( echo "$t" | grep -E -q "$PROTECTED_VERSIONS" );then
+        debug "$t is protected, no skip"
+        return 1
+    fi
     if ( echo "$t" | grep -E -q "$SKIPPED_TAGS" );then
         ret=0
     fi
@@ -484,11 +500,9 @@ is_skipped() {
     # fi
     return $ret
 }
-# echo $(set -x && is_skipped library/redis/3.0.4-32bit;echo $?)
-# exit 1
 
 skip_local() {
-    grep -E -v "(.\/)?local"
+    grep -E -v "(.\/)?local|\.git"
 }
 
 #  get_namespace_tag libary/foo/bar : get image tag with its final namespace
@@ -509,9 +523,19 @@ do_get_namespace_tag() {
             # ubuntu-bare / postgis
             if [ -e $i/tag ];then tag=$( cat $i/tag );break;fi
         done
+        for i in $image $image/.. $image/../../..;do
+            # ubuntu-bare / postgis
+            if [ -e $i/version ];then version=$( cat $i/version );break;fi
+        done
         echo "$repo/$tag:$version" \
-            | sed -re "s/(-?(server)?-(web-vault|postgresql|mysql)):/-server:\3-/g"
+            | sed -re "s/(-?(server)?-(web-vault|elasticsearch|opensearch|postgresql|mysql|mongo|mongodb|maria|mariadb)):/-server:\3-/g"
     done
+}
+
+filter_tags() {
+    for j in $@ ;do for i in $j;do
+        if is_skipped "$n:$i";then debug "Skipped: $n:$i";else printf "$i\n";fi
+    done;done | awk '!seen[$0]++' | sort -V
 }
 
 do_get_image_tags() { get_image_tags "$@"; }
@@ -537,13 +561,80 @@ get_image_tags() {
             if [[ -n "${result}" ]];then results="${results} ${result}";else has_more=256;fi
         done
         if [ ! -e "$TOPDIR/$n" ];then mkdir -p "$TOPDIR/$n";fi
-        printf "$results\n" | sort -V > "$t.raw"
+        printf "$results\n" | xargs -n 1 | sed -e "s/ //g" | sort -V > "$t.raw"
+    fi
+    atags="$(filter_tags "$(cat $t.raw|xargs -n1)")"
+    # cleanup minor images (keep latest minor only)
+    # if $ONLY_ONE_MINOR is set,  then for each flavor, test for each a.b.c version:
+    #   if $ONLY_LAST_MINOR is set:     keep only one minor amongst all subminors a.b version
+    #   if $ONLY_LAST_MINOR is not set: keep only one minor for all subminors a.b
+    # This works by calling this func which will update the $SKIPPED_TAGS variable,
+    #   then further calls to `is_skipped $tags` or `filter_tags $tags` will filter appropriate minor tags
+    local fatags="$(echo $atags | xargs -n1 | grep -E "^[0-9]+\.[0-9]+\.")"
+    debug "$n: initial atags/fatags: $(echo $atags)     ////     $(echo $fatags)"
+    local NB_LOOPS=1000; local EARLY_QUIT=30
+    if [[ "x${ONLY_ONE_MINOR}" != "x" ]] && ( echo $n | grep -E -q "$ONLY_ONE_MINOR" );then
+        flavors="alpine|alpine3.16|alpine3.15|alpine3.14|alpine3.13|alpine3.5|noble|jammy|focal|bionic|xenial|trusty|bookworm|bullseye|stretch|buster|jessie"
+        for flavor in $(echo $flavors | sed -re "s/[|]/ /g") "";do
+            notselected=""
+            if [[ -n $flavor ]];then
+                fvatags="$( ( echo "$fatags" | grep  -E ".*$flavor$"    || true ) | sort -V )"
+            else
+                fvatags="$( ( echo "$fatags" | grep -vE "^.*($flavors)$" || true ) | sort -V )"
+            fi
+            if [[ -z "$fvatags" ]];then debug "---> flavor: $flavor is nul / $(echo $fatags) / $(echo $fvatags)"; continue;fi
+            for ix in $(seq 0 $NB_LOOPS);do
+                f1atags="$( ( echo "$fvatags" | grep -E "^$ix\." ) || true )"
+                if [[ -z $f1atags ]];then
+                    # break ASAP first level loop, but do not overoptimize: only after a long while
+                    if [[ $ix -gt $EARLY_QUIT ]];then
+                        f1ratags="$(echo "$f1atags" | grep -E "^($(echo $(seq $ix $NB_LOOPS)|sed -re "s/ /|/g"))\.")"
+                        if [[ -z $f1ratags ]];then debug "Quit earlier1: $n/$flavor/$ix";break;fi
+                    fi
+                    continue
+                fi
+                for j in $(seq 0 $NB_LOOPS);do
+                    f2atags="$( ( echo "$f1atags" | grep -E "^$ix\.$j\." ) || true )"
+                    if [[ -z $f2atags ]];then
+                        # break ASAP second level loop, but do not overoptimize: only after a long while
+                        if [[ $j -gt $EARLY_QUIT ]];then
+                            f2ratags="$( ( echo "$f1atags" | grep -E "^$ix\.($(echo $(seq $j $NB_LOOPS)|sed -re "s/ /|/g"))\." ) || true)"
+                            if [[ -z $f2ratags ]];then debug "Quit earlier2: $n/$flavor/$ix/$j";break;fi
+                        fi
+                        continue
+                    fi
+                    mnotselected=""
+                    for k in $(seq 0 $NB_LOOPS);do
+                        f3atags="$( ( ( echo "$f2atags" | grep -E "^$ix\.$j\.${k}([^0-9].*$|$)" ) || true ) | xargs -n1 )"
+                        if [[ -z $f3atags ]];then
+                            # break ASAP third level loop, but do not overoptimize: only after a long while
+                            if [[ $k -gt $EARLY_QUIT ]];then
+                                f3ratags="$( ( echo "$f2atags" | grep -E "^$ix\.($(echo $(seq $j $NB_LOOPS)|sed -re "s/ /|/g"))\.($(echo $(seq $k $NB_LOOPS)|sed -re "s/ /|/g"))" ) || true)"
+                                if [[ -z $f3ratags ]];then debug "Quit earlier3: $n/$flavor/$ix/$j/$k";break;fi
+                            fi
+                            continue
+                        fi
+                        mnotselected="$(join_by " " "$mnotselected" $( for pt in $f3atags;do if [[ -z "${PROTECTED_VERSIONS}" ]] || ! ( echo "$n:$pt" | grep -q "${PROTECTED_VERSIONS}" );then echo $pt;fi;done ) )"
+                    done
+                    # if ONLY_ONE_MINOR is not set: keep one subminor per minor release
+                    if [[ -z "${ONLY_LAST_MINOR}" ]];then mnotselected=$(filter_last_line_but_keep_at_least_once "$(echo "${mnotselected}" | xargs -n1)");fi
+                    if [[ -n $mnotselected ]];then
+                        debug "mnotselected FOR $flavor $ix $j: $(echo $mnotselected)"
+                        notselected="$(join_by " " "$notselected" "${mnotselected}")"
+                    fi
+                done
+                # if ONLY_ONE_MINOR is set: keep the latest subminor amongst all releases
+                if [[ -n "${ONLY_LAST_MINOR}" ]];then notselected=$(filter_last_line_but_keep_at_least_once "$(echo "${notselected}" | xargs -n1)");fi
+            done
+            if [[ -n $notselected ]];then
+                debug "flavor $flavor: notselected: $(echo $notselected)"
+                SKIPPED_TAGS="$SKIPPED_TAGS|(($ONLY_ONE_MINOR):($(join_by '|' $notselected ))$)"
+            fi
+        done
     fi
     if [[ -z ${SKIP_TAGS_REBUILD} ]];then
-    rm -f "$t"
-    ( for i in $(cat "$t.raw");do
-        if is_skipped "$n:$i";then debug "Skipped: $n:$i";else printf "$i\n";fi
-      done | awk '!seen[$0]++' | sort -V ) >> "$t"
+        rm -f "$t"
+        filter_tags "$atags" > "$t"
     fi
     set -e
     if [ -e "$t" ];then cat "$t";fi
@@ -580,6 +671,7 @@ do_clean_tags() {
 do_refresh_images() {
     local imagess="${@:-$default_images}"
     cp -vf local/corpusops.bootstrap/bin/cops_pkgmgr_install.sh helpers/
+    if [[ -z ${SKIP_REFRESH_COPS-} ]];then
     if ! ( grep -q corpusops/docker-images .git/config );then
     if [ ! -e local/docker-images ];then
         git clone https://github.com/corpusops/docker-images local/docker-images
@@ -587,13 +679,16 @@ do_refresh_images() {
     ( cd local/docker-images && git fetch --all && git reset --hard origin/master \
       && cp -rf helpers Dock* rootfs packages ../..; )
     fi
+    fi
     while read images;do
         for image in $images;do
             if [[ -n $image ]];then
                 if [[ -z "${SKIP_MAKE_TAGS-}" ]];then
                     make_tags $image
                 fi
-                do_clean_tags $image
+                if ( echo "$image" | grep -E -vq "${PROTECTED_TAGS-}" ) || [[ -z ${PROTECTED_TAGS-} ]];then
+                    do_clean_tags $image
+                fi
             fi
         done
     done <<< "$imagess"
@@ -622,20 +717,20 @@ is_same_commit_label() {
     return $ret
 }
 
-get_docker_squash_args() {
-    DOCKER_DO_SQUASH=${DOCKER_DO_SQUASH-init}
-    if ! ( echo "${NO_SQUASH-}"|grep -E -q "^(no)?$" );then
-        DOCKER_DO_SQUASH=""
-        log "no squash"
-    elif [[ "$DOCKER_DO_SQUASH" = init ]];then
-        DOCKER_DO_SQUASH="--squash"
-        if ! (printf "FROM alpine\nRUN touch foo\n" | docker build --squash - >/dev/null 2>&1 );then
-            DOCKER_DO_SQUASH=
-            log "docker squash isnt not supported"
-        fi
-    fi
-    echo $DOCKER_DO_SQUASH
-}
+#get_docker_squash_args() {
+#    DOCKER_DO_SQUASH=${DOCKER_DO_SQUASH-init}
+#    if ! ( echo "${NO_SQUASH-}"|grep -E -q "^(no)?$" );then
+#        DOCKER_DO_SQUASH=""
+#        log "no squash"
+#    elif [[ "$DOCKER_DO_SQUASH" = init ]];then
+#        DOCKER_DO_SQUASH="--squash"
+#        if ! (printf "FROM alpine\nRUN touch foo\n" | docker build --squash - >/dev/null 2>&1 );then
+#            DOCKER_DO_SQUASH=
+#            log "docker squash isnt not supported"
+#        fi
+#    fi
+#    echo $DOCKER_DO_SQUASH
+#}
 
 record_build_image() {
     # library/ubuntu/latest / corpusops/postgis/latest
@@ -651,7 +746,7 @@ record_build_image() {
         log "Image $itag is update to date, skipping build"
         return
     fi
-    dargs="${DOCKER_BUILD_ARGS-} $(get_docker_squash_args)"
+    dargs="${DOCKER_BUILD_ARGS-}"
     local dbuild="cat $image/$df|docker build ${dargs-}  -t $itag . -f - --build-arg=DOCKER_IMAGES_COMMIT=$git_commit"
     local retries=${DOCKER_BUILD_RETRIES:-2}
     local cmd="dret=8 && for i in \$(seq $retries);do if ($dbuild);then dret=0;break;else dret=6;fi;done"
